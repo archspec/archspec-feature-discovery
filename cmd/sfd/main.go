@@ -22,8 +22,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/docopt/docopt-go"
@@ -39,7 +41,7 @@ var (
 	// This will be set using ldflags at compile time
 	Version = "0.1.0"
 	// SpackV : Version of Spack
-	SpackV = ""
+	SpackV = "0.14.2"
 )
 
 // Conf represents SFD configuration options
@@ -87,12 +89,13 @@ func getMicroArch() (string, error) {
 func (conf *Conf) getConfFromArgv(argv []string) {
 	usage := fmt.Sprintf(`%[1]s:
 Usage:
-  %[1]s [--oneshot | --sleep-interval=<seconds>] [--output-file=<file> | -o <file>]
+  %[1]s [--labelonce | --sleep-interval=<seconds>] [--output-file=<file> | -o <file>]
   %[1]s -h | --help
   %[1]s --version
 
 Options:
   -h --help                       Show this help message and exit
+  --labelonce					  only label once and exits
   --version                       Display version and exit
   --sleep-interval=<seconds>      Time to sleep between labeling [Default: 60s]
   -o <file> --output-file=<file>  Path to output file
@@ -139,6 +142,7 @@ func (conf *Conf) getConfFromEnv() {
 			log.Fatal("Invalid value from env for sleep-interval option: ", err)
 		}
 	}
+
 	outputFilePathTmp, ok := os.LookupEnv("SFD_OUTPUT_FILE")
 	if ok {
 		conf.OutputFilePath = outputFilePathTmp
@@ -146,6 +150,19 @@ func (conf *Conf) getConfFromEnv() {
 }
 
 func run(conf Conf) error {
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	exitChan := make(chan bool)
+
+	go func() {
+		select {
+		case s := <-sigChan:
+			log.Printf("Received signal \"%v\", shutting down.", s)
+			exitChan <- true
+		}
+	}()
 
 	outputFileAbsPath, err := filepath.Abs(conf.OutputFilePath)
 	if err != nil {
@@ -172,7 +189,7 @@ L:
 
 		log.Print("Writing labels to output file")
 		fmt.Fprintf(tmpOutputFile, "spack.io/sfd.timestamp=%d\n", time.Now().Unix())
-		fmt.Fprintf(tmpOutputFile, "spack.io/sfd.spack.version=%d\n", SpackV)
+		fmt.Fprintf(tmpOutputFile, "spack.io/sfd.spack.version=%s\n", SpackV)
 		fmt.Fprintf(tmpOutputFile, "spack.io/sfd.arch.target=%s\n", arch)
 
 		err = tmpOutputFile.Chmod(0644)
