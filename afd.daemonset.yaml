@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-afd
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: archspec-feature-discovery
+  namespace: openshift-afd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: archspec-feature-discovery
+  namespace: openshift-afd
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - privileged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: archspec-feature-discovery
+  namespace: openshift-afd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: archspec-feature-discovery
+  namespace: openshift-afd
+subjects:
+- kind: ServiceAccount
+  name: archspec-feature-discovery
+  namespace: openshift-afd
+userNames:
+- system:serviceaccount:openshift-afd:archspec-feature-discovery
+--- 
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: archspec-feature-discovery
+  namespace: openshift-afd
+  labels:
+    app.kubernetes.io/name: archspec-feature-discovery
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: archspec-feature-discovery
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: archspec-feature-discovery
+    spec:
+      containers:
+        - image: quay.io/eduardoarango/archspec-feature-discovery:latest
+          name: archspec-feature-discovery
+          volumeMounts:
+            - name: output-dir
+              mountPath: "/etc/kubernetes/node-feature-discovery/features.d"
+          securityContext:
+            privileged: true
+      serviceAccount: archspec-feature-discovery
+      volumes:
+        - name: output-dir
+          hostPath:
+            path: "/etc/kubernetes/node-feature-discovery/features.d"
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""

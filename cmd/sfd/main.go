@@ -29,19 +29,18 @@ import (
 	"time"
 
 	"github.com/docopt/docopt-go"
+	"github.com/klauspost/cpuid"
 )
 
 const (
 	// Bin : Name of the binary
-	Bin = "spack-feature-discovery"
+	Bin = "archspec-feature-discovery"
 )
 
 var (
 	// Version : Version of the binary
 	// This will be set using ldflags at compile time
-	Version = "0.1.0"
-	// SpackV : Version of Spack
-	SpackV = "0.14.2"
+	Version = "0.2.0"
 )
 
 // Conf represents SFD configuration options
@@ -72,14 +71,14 @@ func main() {
 
 func getMicroArch() (string, error) {
 
-	spack, err := exec.LookPath("spack")
+	archspec, err := exec.LookPath("archspec")
 	if err != nil {
 		return "", err
 	}
 
-	args := []string{"arch", "-t"}
+	args := []string{"cpu"}
 
-	cmd := exec.Command(spack, args...)
+	cmd := exec.Command(archspec, args...)
 	stdout, _ := cmd.Output()
 	arch := string(stdout)
 
@@ -99,7 +98,7 @@ Options:
   --version                       Display version and exit
   --sleep-interval=<seconds>      Time to sleep between labeling [Default: 60s]
   -o <file> --output-file=<file>  Path to output file
-                                  [Default: /etc/kubernetes/node-feature-discovery/features.d/sfd]`,
+                                  [Default: /etc/kubernetes/node-feature-discovery/features.d/afd]`,
 		Bin)
 
 	opts, err := docopt.ParseArgs(usage, argv[1:], Bin+" "+Version)
@@ -129,12 +128,12 @@ Options:
 
 func (conf *Conf) getConfFromEnv() {
 
-	val, ok := os.LookupEnv("SFD_LABELONCE")
+	val, ok := os.LookupEnv("AFD_LABELONCE")
 	if ok && strings.EqualFold(val, "true") {
 		conf.LabelOnce = true
 	}
 
-	sleepIntervalString, ok := os.LookupEnv("SFD_SLEEP_INTERVAL")
+	sleepIntervalString, ok := os.LookupEnv("AFD_SLEEP_INTERVAL")
 	if ok {
 		var err error
 		conf.SleepInterval, err = time.ParseDuration(sleepIntervalString)
@@ -143,7 +142,7 @@ func (conf *Conf) getConfFromEnv() {
 		}
 	}
 
-	outputFilePathTmp, ok := os.LookupEnv("SFD_OUTPUT_FILE")
+	outputFilePathTmp, ok := os.LookupEnv("AFD_OUTPUT_FILE")
 	if ok {
 		conf.OutputFilePath = outputFilePathTmp
 	}
@@ -168,7 +167,7 @@ func run(conf Conf) error {
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve absolute path of output file: %v", err)
 	}
-	tmpDirPath := filepath.Dir(outputFileAbsPath) + "/sfd-tmp"
+	tmpDirPath := filepath.Dir(outputFileAbsPath) + "/afd-tmp"
 
 	err = os.Mkdir(tmpDirPath, os.ModePerm)
 	if err != nil && !os.IsExist(err) {
@@ -188,9 +187,10 @@ L:
 		}
 
 		log.Print("Writing labels to output file")
-		fmt.Fprintf(tmpOutputFile, "spack.io/sfd.timestamp=%d\n", time.Now().Unix())
-		fmt.Fprintf(tmpOutputFile, "spack.io/sfd.spack.version=%s\n", SpackV)
-		fmt.Fprintf(tmpOutputFile, "spack.io/sfd.arch.target=%s\n", arch)
+		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.brand=%s\n", cpuid.CPU.BrandName)
+		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.model=%d\n", cpuid.CPU.Model)
+		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.family=%s\n", cpuid.CPU.Family)
+		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.target=%s\n", arch)
 
 		err = tmpOutputFile.Chmod(0644)
 		if err != nil {
