@@ -187,9 +187,9 @@ L:
 		}
 
 		log.Print("Writing labels to output file")
-		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.brand=%s\n", cpuid.CPU.BrandName)
+		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.vendor=%s\n", cpuid.CPU.VendorString)
 		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.model=%d\n", cpuid.CPU.Model)
-		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.family=%s\n", cpuid.CPU.Family)
+		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.family=%d\n", cpuid.CPU.Family)
 		fmt.Fprintf(tmpOutputFile, "archspec.io/cpu.target=%s\n", arch)
 
 		err = tmpOutputFile.Chmod(0644)
