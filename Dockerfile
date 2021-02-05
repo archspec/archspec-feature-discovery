@@ -11,7 +11,7 @@ COPY --from=builder /go/src/github.com/ArangoGutierrez/archspec-feature-discover
 
 # Install Spack
 RUN dnf update -y && dnf install git python38 python3-pip -y
-RUN pip3 install archspec
+RUN pip3 install --no-cache-dir archspec
 RUN dnf clean all
 
 RUN useradd afd-side-car
